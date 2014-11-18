@@ -11,11 +11,11 @@ library uses the "toggl" namespace by default.
 
 The repository includes a simple test project. Build it with:
 
-    `go build github.com/jason0x43/go-toggl/toggl`
+    go build github.com/jason0x43/go-toggl/toggl
 
 Run it with your Toggl API token as:
 
-    `./toggl abc123`
+    ./toggl abc123
 
 Assuming everything’s working properly, the program will download your account
 information from Toggl and dump it to the console as a JSON object.
