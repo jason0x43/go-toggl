@@ -3,19 +3,12 @@ go-toggl
 
 A Go library for accessing the Toggl API
 
-Usage
------
+Installation
+------------
 
-Include the dependency `github.com/jason0x43/go-toggl` in your code. The
-library uses the "toggl" namespace by default. 
+Include `github.com/jason0x43/go-toggl` as a dependency in your code. The library imports as `toggl`.
 
-The repository includes a simple test project. Build it with:
+Documentation
+-------------
 
-    go build github.com/jason0x43/go-toggl/toggl
-
-Run it with your Toggl API token as:
-
-    ./toggl abc123
-
-Assuming everything’s working properly, the program will download your account
-information from Toggl and dump it to the console as a JSON object.
+See the [godocs](http://godoc.org/github.com/jason0x43/go-toggl).
