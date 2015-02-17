@@ -377,6 +377,20 @@ func (session *Session) DeleteTag(tag Tag) ([]byte, error) {
 	return session.delete(TogglApi, path)
 }
 
+// Return a copy of a TimeEntry
+func (e *TimeEntry) Copy() TimeEntry {
+	newEntry := *e
+	newEntry.Tags = make([]string, len(e.Tags))
+	copy(newEntry.Tags, e.Tags)
+	if e.Start != nil {
+		newEntry.Start = &(*e.Start)
+	}
+	if e.Stop != nil {
+		newEntry.Stop = &(*e.Stop)
+	}
+	return newEntry
+}
+
 func (e *TimeEntry) StartTime() time.Time {
 	if e.Start != nil {
 		return *e.Start
@@ -392,12 +406,28 @@ func (e *TimeEntry) StopTime() time.Time {
 }
 
 func (e *TimeEntry) HasTag(tag string) bool {
-	for _, t := range e.Tags {
+	return indexOfTag(tag, e.Tags) != -1
+}
+
+func (e *TimeEntry) AddTag(tag string) {
+	if !e.HasTag(tag) {
+		e.Tags = append(e.Tags, tag)
+	}
+}
+
+func (e *TimeEntry) RemoveTag(tag string) {
+	if i := indexOfTag(tag, e.Tags); i != -1 {
+		e.Tags = append(e.Tags[:i], e.Tags[i+1:]...)
+	}
+}
+
+func indexOfTag(tag string, tags []string) int {
+	for i, t := range tags {
 		if t == tag {
-			return true
+			return i
 		}
 	}
-	return false
+	return -1
 }
 
 // UnmarshalJSON unmarshals a TimeEntry from JSON data, converting timestamp
