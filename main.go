@@ -79,7 +79,7 @@ type Tag struct {
 type TimeEntry struct {
 	Wid         int        `json:"wid,omitempty"`
 	Id          int        `json:"id,omitempty"`
-	Pid         int        `json:"pid,omitempty"`
+	Pid         int        `json:"pid"`
 	Description string     `json:"description,omitempty"`
 	Stop        *time.Time `json:"stop,omitempty"`
 	Start       *time.Time `json:"start,omitempty"`
