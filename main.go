@@ -168,7 +168,7 @@ func (session *Session) GetSummaryReport(workspace int, since, until string) (Su
 	return report, err
 }
 
-// GetSummaryReport retrieves a summary report using Toggle's reporting API.
+// StartTimeEntry creates a new time entry.
 func (session *Session) StartTimeEntry(description string) (TimeEntry, error) {
 	data := map[string]interface{}{
 		"time_entry": map[string]string{
@@ -227,8 +227,10 @@ func (session *Session) StopTimeEntry(timer TimeEntry) (TimeEntry, error) {
 	return timeEntryRequest(respData, err)
 }
 
-func (session *Session) AddRemoveTag(entryId int, tag string, add bool) (TimeEntry, error) {
-	log.Printf("Adding tag to time entry %v", entryId)
+// AddRemoveTag adds or removes a tag from the time entry corresponding to a
+// given ID.
+func (session *Session) AddRemoveTag(entryID int, tag string, add bool) (TimeEntry, error) {
+	log.Printf("Adding tag to time entry %v", entryID)
 
 	action := "add"
 	if !add {
@@ -241,7 +243,7 @@ func (session *Session) AddRemoveTag(entryId int, tag string, add bool) (TimeEnt
 			"tag_action": action,
 		},
 	}
-	path := fmt.Sprintf("/time_entries/%v", entryId)
+	path := fmt.Sprintf("/time_entries/%v", entryID)
 	respData, err := session.post(TogglApi, path, data)
 
 	return timeEntryRequest(respData, err)
@@ -255,8 +257,8 @@ func (session *Session) DeleteTimeEntry(timer TimeEntry) ([]byte, error) {
 }
 
 // IsRunning returns true if the receiver is currently running.
-func (timer *TimeEntry) IsRunning() bool {
-	return timer.Duration < 0
+func (e *TimeEntry) IsRunning() bool {
+	return e.Duration < 0
 }
 
 // CreateProject creates a new project.
@@ -377,7 +379,7 @@ func (session *Session) DeleteTag(tag Tag) ([]byte, error) {
 	return session.delete(TogglApi, path)
 }
 
-// Return a copy of a TimeEntry
+// Copy returns a copy of a TimeEntry.
 func (e *TimeEntry) Copy() TimeEntry {
 	newEntry := *e
 	newEntry.Tags = make([]string, len(e.Tags))
@@ -391,6 +393,7 @@ func (e *TimeEntry) Copy() TimeEntry {
 	return newEntry
 }
 
+// StartTime returns the start time of a time entry as a time.Time.
 func (e *TimeEntry) StartTime() time.Time {
 	if e.Start != nil {
 		return *e.Start
@@ -398,6 +401,7 @@ func (e *TimeEntry) StartTime() time.Time {
 	return time.Time{}
 }
 
+// StopTime returns the stop time of a time entry as a time.Time.
 func (e *TimeEntry) StopTime() time.Time {
 	if e.Stop != nil {
 		return *e.Stop
@@ -405,16 +409,20 @@ func (e *TimeEntry) StopTime() time.Time {
 	return time.Time{}
 }
 
+// HasTag returns true if a time entry contains a given tag.
 func (e *TimeEntry) HasTag(tag string) bool {
 	return indexOfTag(tag, e.Tags) != -1
 }
 
+// AddTag adds a tag to a time entry if the entry doesn't already contain the
+// tag.
 func (e *TimeEntry) AddTag(tag string) {
 	if !e.HasTag(tag) {
 		e.Tags = append(e.Tags, tag)
 	}
 }
 
+// RemoveTag removes a tag from a time entry.
 func (e *TimeEntry) RemoveTag(tag string) {
 	if i := indexOfTag(tag, e.Tags); i != -1 {
 		e.Tags = append(e.Tags[:i], e.Tags[i+1:]...)
@@ -432,7 +440,7 @@ func indexOfTag(tag string, tags []string) int {
 
 // UnmarshalJSON unmarshals a TimeEntry from JSON data, converting timestamp
 // fields to Go Time values.
-func (t *TimeEntry) UnmarshalJSON(b []byte) error {
+func (e *TimeEntry) UnmarshalJSON(b []byte) error {
 	var entry tempTimeEntry
 	err := json.Unmarshal(b, &entry)
 	if err != nil {
@@ -442,7 +450,7 @@ func (t *TimeEntry) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return err
 	}
-	*t = te
+	*e = te
 	return nil
 }
 
