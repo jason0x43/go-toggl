@@ -16,15 +16,18 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 )
 
+// Toggl service constants
 const (
-	TogglApi       = "https://toggl.com/api/v8"
-	ReportsApi     = "https://toggl.com/reports/api/v2"
+	TogglAPI       = "https://toggl.com/api/v8"
+	ReportsAPI     = "https://toggl.com/reports/api/v2"
 	DefaultAppName = "go-toggl"
 )
 
+var dlog = log.New(os.Stderr, "[toggl] ", log.LstdFlags)
 var client = &http.Client{}
 
 // AppName is the application name used when creating timers.
@@ -34,7 +37,7 @@ var AppName = DefaultAppName
 
 // Session represents an active connection to the Toggl REST API.
 type Session struct {
-	ApiToken string
+	APIToken string
 	username string
 	password string
 }
@@ -42,9 +45,9 @@ type Session struct {
 // Account represents a user account.
 type Account struct {
 	Data struct {
-		ApiToken    string      `json:"api_token"`
+		APIToken    string      `json:"api_token"`
 		Timezone    string      `json:"timezone"`
-		Id          int         `json:"id"`
+		ID          int         `json:"id"`
 		Workspaces  []Workspace `json:"workspaces"`
 		Projects    []Project   `json:"projects"`
 		Tags        []Tag       `json:"tags"`
@@ -55,7 +58,7 @@ type Account struct {
 
 // Workspace represents a user workspace.
 type Workspace struct {
-	Id              int    `json:"id"`
+	ID              int    `json:"id"`
 	RoundingMinutes int    `json:"rounding_minutes"`
 	Rounding        int    `json:"rounding"`
 	Name            string `json:"name"`
@@ -63,22 +66,29 @@ type Workspace struct {
 
 // Project represents a project.
 type Project struct {
-	Wid  int    `json:"wid"`
-	Id   int    `json:"id"`
-	Name string `json:"name"`
+	Wid             int        `json:"wid"`
+	ID              int        `json:"id"`
+	Name            string     `json:"name"`
+	Active          bool       `json:"active"`
+	ServerDeletedAt *time.Time `json:"server_deleted_at,omitempty"`
+}
+
+// IsActive indicates whether a project exists and is active
+func (p *Project) IsActive() bool {
+	return p.Active && p.ServerDeletedAt == nil
 }
 
 // Tag represents a tag.
 type Tag struct {
 	Wid  int    `json:"wid"`
-	Id   int    `json:"id"`
+	ID   int    `json:"id"`
 	Name string `json:"name"`
 }
 
 // TimeEntry represents a single time entry.
 type TimeEntry struct {
 	Wid         int        `json:"wid,omitempty"`
-	Id          int        `json:"id,omitempty"`
+	ID          int        `json:"id,omitempty"`
 	Pid         int        `json:"pid"`
 	Description string     `json:"description,omitempty"`
 	Stop        *time.Time `json:"stop,omitempty"`
@@ -92,7 +102,7 @@ type TimeEntry struct {
 type SummaryReport struct {
 	TotalGrand int `json:"total_grand"`
 	Data       []struct {
-		Id    int `json:"id"`
+		ID    int `json:"id"`
 		Time  int `json:"time"`
 		Title struct {
 			Project string `json:"project"`
@@ -109,7 +119,7 @@ type SummaryReport struct {
 
 // OpenSession opens a session using an existing API token.
 func OpenSession(apiToken string) Session {
-	return Session{ApiToken: apiToken}
+	return Session{APIToken: apiToken}
 }
 
 // NewSession creates a new session by retrieving a user's API token.
@@ -117,7 +127,7 @@ func NewSession(username, password string) (session Session, err error) {
 	session.username = username
 	session.password = password
 
-	data, err := session.get(TogglApi, "/me", nil)
+	data, err := session.get(TogglAPI, "/me", nil)
 	if err != nil {
 		return session, err
 	}
@@ -130,7 +140,7 @@ func NewSession(username, password string) (session Session, err error) {
 
 	session.username = ""
 	session.password = ""
-	session.ApiToken = account.Data.ApiToken
+	session.APIToken = account.Data.APIToken
 
 	return session, nil
 }
@@ -139,7 +149,7 @@ func NewSession(username, password string) (session Session, err error) {
 // projects and timers.
 func (session *Session) GetAccount() (Account, error) {
 	params := map[string]string{"with_related_data": "true"}
-	data, err := session.get(TogglApi, "/me", params)
+	data, err := session.get(TogglAPI, "/me", params)
 	if err != nil {
 		return Account{}, err
 	}
@@ -158,11 +168,11 @@ func (session *Session) GetSummaryReport(workspace int, since, until string) (Su
 		"until":        until,
 		"rounding":     "on",
 		"workspace_id": fmt.Sprintf("%d", workspace)}
-	data, err := session.get(ReportsApi, "/summary", params)
+	data, err := session.get(ReportsAPI, "/summary", params)
 	if err != nil {
 		return SummaryReport{}, err
 	}
-	log.Printf("Got data: %s", data)
+	dlog.Printf("Got data: %s", data)
 
 	var report SummaryReport
 	err = decodeSummaryReport(data, &report)
@@ -177,31 +187,31 @@ func (session *Session) StartTimeEntry(description string) (TimeEntry, error) {
 			"created_with": AppName,
 		},
 	}
-	respData, err := session.post(TogglApi, "/time_entries/start", data)
+	respData, err := session.post(TogglAPI, "/time_entries/start", data)
 	return timeEntryRequest(respData, err)
 }
 
 // StartTimeEntryForProject creates a new time entry for a specific project.
-func (session *Session) StartTimeEntryForProject(description string, projectId int) (TimeEntry, error) {
+func (session *Session) StartTimeEntryForProject(description string, projectID int) (TimeEntry, error) {
 	data := map[string]interface{}{
 		"time_entry": map[string]interface{}{
 			"description":  description,
-			"pid":          projectId,
+			"pid":          projectID,
 			"created_with": AppName,
 		},
 	}
-	respData, err := session.post(TogglApi, "/time_entries/start", data)
+	respData, err := session.post(TogglAPI, "/time_entries/start", data)
 	return timeEntryRequest(respData, err)
 }
 
 // UpdateTimeEntry changes information about an existing time entry.
 func (session *Session) UpdateTimeEntry(timer TimeEntry) (TimeEntry, error) {
-	log.Printf("Updating timer %v", timer)
+	dlog.Printf("Updating timer %v", timer)
 	data := map[string]interface{}{
 		"time_entry": timer,
 	}
-	path := fmt.Sprintf("/time_entries/%v", timer.Id)
-	respData, err := session.post(TogglApi, path, data)
+	path := fmt.Sprintf("/time_entries/%v", timer.ID)
+	respData, err := session.post(TogglAPI, path, data)
 	return timeEntryRequest(respData, err)
 }
 
@@ -210,7 +220,7 @@ func (session *Session) UpdateTimeEntry(timer TimeEntry) (TimeEntry, error) {
 // In both cases the new entry will have the same description and project ID as
 // the existing one.
 func (session *Session) ContinueTimeEntry(timer TimeEntry, duronly bool) (TimeEntry, error) {
-	log.Printf("Continuing timer %v", timer)
+	dlog.Printf("Continuing timer %v", timer)
 	var respData []byte
 	var err error
 	if duronly {
@@ -220,8 +230,8 @@ func (session *Session) ContinueTimeEntry(timer TimeEntry, duronly bool) (TimeEn
 		data := map[string]interface{}{
 			"time_entry": entry,
 		}
-		path := fmt.Sprintf("/time_entries/%d", timer.Id)
-		respData, err = session.put(TogglApi, path, data)
+		path := fmt.Sprintf("/time_entries/%d", timer.ID)
+		respData, err = session.put(TogglAPI, path, data)
 	} else {
 		data := map[string]interface{}{
 			"time_entry": map[string]interface{}{
@@ -230,23 +240,23 @@ func (session *Session) ContinueTimeEntry(timer TimeEntry, duronly bool) (TimeEn
 				"created_with": AppName,
 			},
 		}
-		respData, err = session.post(TogglApi, "/time_entries/start", data)
+		respData, err = session.post(TogglAPI, "/time_entries/start", data)
 	}
 	return timeEntryRequest(respData, err)
 }
 
 // StopTimeEntry stops a running time entry.
 func (session *Session) StopTimeEntry(timer TimeEntry) (TimeEntry, error) {
-	log.Printf("Stopping timer %v", timer)
-	path := fmt.Sprintf("/time_entries/%v/stop", timer.Id)
-	respData, err := session.put(TogglApi, path, nil)
+	dlog.Printf("Stopping timer %v", timer)
+	path := fmt.Sprintf("/time_entries/%v/stop", timer.ID)
+	respData, err := session.put(TogglAPI, path, nil)
 	return timeEntryRequest(respData, err)
 }
 
 // AddRemoveTag adds or removes a tag from the time entry corresponding to a
 // given ID.
 func (session *Session) AddRemoveTag(entryID int, tag string, add bool) (TimeEntry, error) {
-	log.Printf("Adding tag to time entry %v", entryID)
+	dlog.Printf("Adding tag to time entry %v", entryID)
 
 	action := "add"
 	if !add {
@@ -260,16 +270,16 @@ func (session *Session) AddRemoveTag(entryID int, tag string, add bool) (TimeEnt
 		},
 	}
 	path := fmt.Sprintf("/time_entries/%v", entryID)
-	respData, err := session.post(TogglApi, path, data)
+	respData, err := session.post(TogglAPI, path, data)
 
 	return timeEntryRequest(respData, err)
 }
 
 // DeleteTimeEntry deletes a time entry.
 func (session *Session) DeleteTimeEntry(timer TimeEntry) ([]byte, error) {
-	log.Printf("Deleting timer %v", timer)
-	path := fmt.Sprintf("/time_entries/%v", timer.Id)
-	return session.delete(TogglApi, path)
+	dlog.Printf("Deleting timer %v", timer)
+	path := fmt.Sprintf("/time_entries/%v", timer.ID)
+	return session.delete(TogglAPI, path)
 }
 
 // IsRunning returns true if the receiver is currently running.
@@ -279,7 +289,7 @@ func (e *TimeEntry) IsRunning() bool {
 
 // CreateProject creates a new project.
 func (session *Session) CreateProject(name string, wid int) (proj Project, err error) {
-	log.Printf("Creating project %s", name)
+	dlog.Printf("Creating project %s", name)
 	data := map[string]interface{}{
 		"project": map[string]interface{}{
 			"name": name,
@@ -287,7 +297,7 @@ func (session *Session) CreateProject(name string, wid int) (proj Project, err e
 		},
 	}
 
-	respData, err := session.post(TogglApi, "/projects", data)
+	respData, err := session.post(TogglAPI, "/projects", data)
 	if err != nil {
 		return proj, err
 	}
@@ -296,7 +306,7 @@ func (session *Session) CreateProject(name string, wid int) (proj Project, err e
 		Data Project `json:"data"`
 	}
 	err = json.Unmarshal(respData, &entry)
-	log.Printf("Unmarshaled '%s' into %#v\n", respData, entry)
+	dlog.Printf("Unmarshaled '%s' into %#v\n", respData, entry)
 	if err != nil {
 		return proj, err
 	}
@@ -306,12 +316,12 @@ func (session *Session) CreateProject(name string, wid int) (proj Project, err e
 
 // UpdateProject changes information about an existing project.
 func (session *Session) UpdateProject(project Project) (Project, error) {
-	log.Printf("Updating project %v", project)
+	dlog.Printf("Updating project %v", project)
 	data := map[string]interface{}{
 		"project": project,
 	}
-	path := fmt.Sprintf("/projects/%v", project.Id)
-	respData, err := session.put(TogglApi, path, data)
+	path := fmt.Sprintf("/projects/%v", project.ID)
+	respData, err := session.put(TogglAPI, path, data)
 
 	if err != nil {
 		return Project{}, err
@@ -321,7 +331,7 @@ func (session *Session) UpdateProject(project Project) (Project, error) {
 		Data Project `json:"data"`
 	}
 	err = json.Unmarshal(respData, &entry)
-	log.Printf("Unmarshaled '%s' into %#v\n", data, entry)
+	dlog.Printf("Unmarshaled '%s' into %#v\n", data, entry)
 	if err != nil {
 		return Project{}, err
 	}
@@ -331,14 +341,14 @@ func (session *Session) UpdateProject(project Project) (Project, error) {
 
 // DeleteProject deletes a project.
 func (session *Session) DeleteProject(project Project) ([]byte, error) {
-	log.Printf("Deleting project %v", project)
-	path := fmt.Sprintf("/projects/%v", project.Id)
-	return session.delete(TogglApi, path)
+	dlog.Printf("Deleting project %v", project)
+	path := fmt.Sprintf("/projects/%v", project.ID)
+	return session.delete(TogglAPI, path)
 }
 
 // CreateTag creates a new tag.
 func (session *Session) CreateTag(name string, wid int) (proj Tag, err error) {
-	log.Printf("Creating tag %s", name)
+	dlog.Printf("Creating tag %s", name)
 	data := map[string]interface{}{
 		"tag": map[string]interface{}{
 			"name": name,
@@ -346,7 +356,7 @@ func (session *Session) CreateTag(name string, wid int) (proj Tag, err error) {
 		},
 	}
 
-	respData, err := session.post(TogglApi, "/tags", data)
+	respData, err := session.post(TogglAPI, "/tags", data)
 	if err != nil {
 		return proj, err
 	}
@@ -355,7 +365,7 @@ func (session *Session) CreateTag(name string, wid int) (proj Tag, err error) {
 		Data Tag `json:"data"`
 	}
 	err = json.Unmarshal(respData, &entry)
-	log.Printf("Unmarshaled '%s' into %#v\n", respData, entry)
+	dlog.Printf("Unmarshaled '%s' into %#v\n", respData, entry)
 	if err != nil {
 		return proj, err
 	}
@@ -365,12 +375,12 @@ func (session *Session) CreateTag(name string, wid int) (proj Tag, err error) {
 
 // UpdateTag changes information about an existing tag.
 func (session *Session) UpdateTag(tag Tag) (Tag, error) {
-	log.Printf("Updating tag %v", tag)
+	dlog.Printf("Updating tag %v", tag)
 	data := map[string]interface{}{
 		"tag": tag,
 	}
-	path := fmt.Sprintf("/tags/%v", tag.Id)
-	respData, err := session.put(TogglApi, path, data)
+	path := fmt.Sprintf("/tags/%v", tag.ID)
+	respData, err := session.put(TogglAPI, path, data)
 
 	if err != nil {
 		return Tag{}, err
@@ -380,7 +390,7 @@ func (session *Session) UpdateTag(tag Tag) (Tag, error) {
 		Data Tag `json:"data"`
 	}
 	err = json.Unmarshal(respData, &entry)
-	log.Printf("Unmarshaled '%s' into %#v\n", data, entry)
+	dlog.Printf("Unmarshaled '%s' into %#v\n", data, entry)
 	if err != nil {
 		return Tag{}, err
 	}
@@ -390,9 +400,9 @@ func (session *Session) UpdateTag(tag Tag) (Tag, error) {
 
 // DeleteTag deletes a tag.
 func (session *Session) DeleteTag(tag Tag) ([]byte, error) {
-	log.Printf("Deleting tag %v", tag)
-	path := fmt.Sprintf("/tags/%v", tag.Id)
-	return session.delete(TogglApi, path)
+	dlog.Printf("Deleting tag %v", tag)
+	path := fmt.Sprintf("/tags/%v", tag.ID)
+	return session.delete(TogglAPI, path)
 }
 
 // Copy returns a copy of a TimeEntry.
@@ -472,11 +482,11 @@ func (e *TimeEntry) UnmarshalJSON(b []byte) error {
 
 // support /////////////////////////////////////////////////////////////
 
-func (session *Session) request(method string, requestUrl string, body io.Reader) ([]byte, error) {
-	req, err := http.NewRequest(method, requestUrl, body)
+func (session *Session) request(method string, requestURL string, body io.Reader) ([]byte, error) {
+	req, err := http.NewRequest(method, requestURL, body)
 
-	if session.ApiToken != "" {
-		req.SetBasicAuth(session.ApiToken, "api_token")
+	if session.APIToken != "" {
+		req.SetBasicAuth(session.APIToken, "api_token")
 	} else {
 		req.SetBasicAuth(session.username, session.password)
 	}
@@ -501,23 +511,23 @@ func (session *Session) request(method string, requestUrl string, body io.Reader
 	return content, nil
 }
 
-func (session *Session) get(requestUrl string, path string, params map[string]string) ([]byte, error) {
-	requestUrl += path
+func (session *Session) get(requestURL string, path string, params map[string]string) ([]byte, error) {
+	requestURL += path
 
 	if params != nil {
 		data := url.Values{}
 		for key, value := range params {
 			data.Set(key, value)
 		}
-		requestUrl += "?" + data.Encode()
+		requestURL += "?" + data.Encode()
 	}
 
-	log.Printf("GETing from URL: %s", requestUrl)
-	return session.request("GET", requestUrl, nil)
+	dlog.Printf("GETing from URL: %s", requestURL)
+	return session.request("GET", requestURL, nil)
 }
 
-func (session *Session) post(requestUrl string, path string, data interface{}) ([]byte, error) {
-	requestUrl += path
+func (session *Session) post(requestURL string, path string, data interface{}) ([]byte, error) {
+	requestURL += path
 	var body []byte
 	var err error
 
@@ -528,13 +538,13 @@ func (session *Session) post(requestUrl string, path string, data interface{}) (
 		}
 	}
 
-	log.Printf("POSTing to URL: %s", requestUrl)
-	log.Printf("data: %s", body)
-	return session.request("POST", requestUrl, bytes.NewBuffer(body))
+	dlog.Printf("POSTing to URL: %s", requestURL)
+	dlog.Printf("data: %s", body)
+	return session.request("POST", requestURL, bytes.NewBuffer(body))
 }
 
-func (session *Session) put(requestUrl string, path string, data interface{}) ([]byte, error) {
-	requestUrl += path
+func (session *Session) put(requestURL string, path string, data interface{}) ([]byte, error) {
+	requestURL += path
 	var body []byte
 	var err error
 
@@ -545,14 +555,14 @@ func (session *Session) put(requestUrl string, path string, data interface{}) ([
 		}
 	}
 
-	log.Printf("PUTing to URL %s: %s", requestUrl, string(body))
-	return session.request("PUT", requestUrl, bytes.NewBuffer(body))
+	dlog.Printf("PUTing to URL %s: %s", requestURL, string(body))
+	return session.request("PUT", requestURL, bytes.NewBuffer(body))
 }
 
-func (session *Session) delete(requestUrl string, path string) ([]byte, error) {
-	requestUrl += path
-	log.Printf("DELETINGing URL: %s", requestUrl)
-	return session.request("DELETE", requestUrl, nil)
+func (session *Session) delete(requestURL string, path string) ([]byte, error) {
+	requestURL += path
+	dlog.Printf("DELETINGing URL: %s", requestURL)
+	return session.request("DELETE", requestURL, nil)
 }
 
 func decodeSession(data []byte, session *Session) error {
@@ -574,7 +584,7 @@ func decodeAccount(data []byte, account *Account) error {
 }
 
 func decodeSummaryReport(data []byte, report *SummaryReport) error {
-	log.Printf("Decoding %s", data)
+	dlog.Printf("Decoding %s", data)
 	dec := json.NewDecoder(bytes.NewReader(data))
 	err := dec.Decode(&report)
 	if err != nil {
@@ -635,7 +645,7 @@ func timeEntryRequest(data []byte, err error) (TimeEntry, error) {
 		Data TimeEntry `json:"data"`
 	}
 	err = json.Unmarshal(data, &entry)
-	log.Printf("Unmarshaled '%s' into %#v\n", data, entry)
+	dlog.Printf("Unmarshaled '%s' into %#v\n", data, entry)
 	if err != nil {
 		return TimeEntry{}, err
 	}
