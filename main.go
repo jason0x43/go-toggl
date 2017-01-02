@@ -27,11 +27,13 @@ const (
 	DefaultAppName = "go-toggl"
 )
 
-var dlog = log.New(os.Stderr, "[toggl] ", log.LstdFlags)
-var client = &http.Client{}
+var (
+	dlog   = log.New(os.Stderr, "[toggl] ", log.LstdFlags)
+	client = &http.Client{}
 
-// AppName is the application name used when creating timers.
-var AppName = DefaultAppName
+	// AppName is the application name used when creating timers.
+	AppName = DefaultAppName
+)
 
 // structures ///////////////////////////
 
@@ -257,7 +259,6 @@ func (session *Session) StopTimeEntry(timer TimeEntry) (TimeEntry, error) {
 // given ID.
 func (session *Session) AddRemoveTag(entryID int, tag string, add bool) (TimeEntry, error) {
 	dlog.Printf("Adding tag to time entry %v", entryID)
-
 	action := "add"
 	if !add {
 		action = "remove"
@@ -537,7 +538,6 @@ func (session *Session) post(requestURL string, path string, data interface{}) (
 			return nil, err
 		}
 	}
-
 	dlog.Printf("POSTing to URL: %s", requestURL)
 	dlog.Printf("data: %s", body)
 	return session.request("POST", requestURL, bytes.NewBuffer(body))
@@ -554,7 +554,6 @@ func (session *Session) put(requestURL string, path string, data interface{}) ([
 			return nil, err
 		}
 	}
-
 	dlog.Printf("PUTing to URL %s: %s", requestURL, string(body))
 	return session.request("PUT", requestURL, bytes.NewBuffer(body))
 }
@@ -651,4 +650,17 @@ func timeEntryRequest(data []byte, err error) (TimeEntry, error) {
 	}
 
 	return entry.Data, nil
+}
+
+// DisableLog disables output to stderr
+func DisableLog() {
+	dlog.SetFlags(0)
+	dlog.SetOutput(ioutil.Discard)
+}
+
+// EnableLog enables output to stderr
+func EnableLog() {
+	logFlags := dlog.Flags()
+	dlog.SetFlags(logFlags)
+	dlog.SetOutput(os.Stderr)
 }
