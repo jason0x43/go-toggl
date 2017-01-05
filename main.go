@@ -256,7 +256,9 @@ func (session *Session) ContinueTimeEntry(timer TimeEntry, duronly bool) (TimeEn
 
 // StopTimeEntry stops a running time entry.
 func (session *Session) StopTimeEntry(timer TimeEntry) (TimeEntry, error) {
-	dlog.Printf("Stopping timer %v", timer)
+	if doLogging {
+		dlog.Printf("Stopping timer %v", timer)
+	}
 	path := fmt.Sprintf("/time_entries/%v/stop", timer.ID)
 	respData, err := session.put(TogglAPI, path, nil)
 	return timeEntryRequest(respData, err)
