@@ -28,9 +28,8 @@ const (
 )
 
 var (
-	dlog      = log.New(os.Stderr, "[toggl] ", log.LstdFlags)
-	client    = &http.Client{}
-	doLogging bool
+	dlog   = log.New(os.Stderr, "[toggl] ", log.LstdFlags)
+	client = &http.Client{}
 
 	// AppName is the application name used when creating timers.
 	AppName = DefaultAppName
@@ -175,9 +174,7 @@ func (session *Session) GetSummaryReport(workspace int, since, until string) (Su
 	if err != nil {
 		return SummaryReport{}, err
 	}
-	if doLogging {
-		dlog.Printf("Got data: %s", data)
-	}
+	dlog.Printf("Got data: %s", data)
 
 	var report SummaryReport
 	err = decodeSummaryReport(data, &report)
@@ -211,9 +208,7 @@ func (session *Session) StartTimeEntryForProject(description string, projectID i
 
 // UpdateTimeEntry changes information about an existing time entry.
 func (session *Session) UpdateTimeEntry(timer TimeEntry) (TimeEntry, error) {
-	if doLogging {
-		dlog.Printf("Updating timer %v", timer)
-	}
+	dlog.Printf("Updating timer %v", timer)
 	data := map[string]interface{}{
 		"time_entry": timer,
 	}
@@ -227,9 +222,7 @@ func (session *Session) UpdateTimeEntry(timer TimeEntry) (TimeEntry, error) {
 // In both cases the new entry will have the same description and project ID as
 // the existing one.
 func (session *Session) ContinueTimeEntry(timer TimeEntry, duronly bool) (TimeEntry, error) {
-	if doLogging {
-		dlog.Printf("Continuing timer %v", timer)
-	}
+	dlog.Printf("Continuing timer %v", timer)
 	var respData []byte
 	var err error
 	if duronly {
@@ -256,9 +249,7 @@ func (session *Session) ContinueTimeEntry(timer TimeEntry, duronly bool) (TimeEn
 
 // StopTimeEntry stops a running time entry.
 func (session *Session) StopTimeEntry(timer TimeEntry) (TimeEntry, error) {
-	if doLogging {
-		dlog.Printf("Stopping timer %v", timer)
-	}
+	dlog.Printf("Stopping timer %v", timer)
 	path := fmt.Sprintf("/time_entries/%v/stop", timer.ID)
 	respData, err := session.put(TogglAPI, path, nil)
 	return timeEntryRequest(respData, err)
@@ -267,9 +258,7 @@ func (session *Session) StopTimeEntry(timer TimeEntry) (TimeEntry, error) {
 // AddRemoveTag adds or removes a tag from the time entry corresponding to a
 // given ID.
 func (session *Session) AddRemoveTag(entryID int, tag string, add bool) (TimeEntry, error) {
-	if doLogging {
-		dlog.Printf("Adding tag to time entry %v", entryID)
-	}
+	dlog.Printf("Adding tag to time entry %v", entryID)
 	action := "add"
 	if !add {
 		action = "remove"
@@ -289,9 +278,7 @@ func (session *Session) AddRemoveTag(entryID int, tag string, add bool) (TimeEnt
 
 // DeleteTimeEntry deletes a time entry.
 func (session *Session) DeleteTimeEntry(timer TimeEntry) ([]byte, error) {
-	if doLogging {
-		dlog.Printf("Deleting timer %v", timer)
-	}
+	dlog.Printf("Deleting timer %v", timer)
 	path := fmt.Sprintf("/time_entries/%v", timer.ID)
 	return session.delete(TogglAPI, path)
 }
@@ -303,9 +290,7 @@ func (e *TimeEntry) IsRunning() bool {
 
 // CreateProject creates a new project.
 func (session *Session) CreateProject(name string, wid int) (proj Project, err error) {
-	if doLogging {
-		dlog.Printf("Creating project %s", name)
-	}
+	dlog.Printf("Creating project %s", name)
 	data := map[string]interface{}{
 		"project": map[string]interface{}{
 			"name": name,
@@ -332,9 +317,7 @@ func (session *Session) CreateProject(name string, wid int) (proj Project, err e
 
 // UpdateProject changes information about an existing project.
 func (session *Session) UpdateProject(project Project) (Project, error) {
-	if doLogging {
-		dlog.Printf("Updating project %v", project)
-	}
+	dlog.Printf("Updating project %v", project)
 	data := map[string]interface{}{
 		"project": project,
 	}
@@ -349,9 +332,7 @@ func (session *Session) UpdateProject(project Project) (Project, error) {
 		Data Project `json:"data"`
 	}
 	err = json.Unmarshal(respData, &entry)
-	if doLogging {
-		dlog.Printf("Unmarshaled '%s' into %#v\n", data, entry)
-	}
+	dlog.Printf("Unmarshaled '%s' into %#v\n", data, entry)
 	if err != nil {
 		return Project{}, err
 	}
@@ -361,18 +342,14 @@ func (session *Session) UpdateProject(project Project) (Project, error) {
 
 // DeleteProject deletes a project.
 func (session *Session) DeleteProject(project Project) ([]byte, error) {
-	if doLogging {
-		dlog.Printf("Deleting project %v", project)
-	}
+	dlog.Printf("Deleting project %v", project)
 	path := fmt.Sprintf("/projects/%v", project.ID)
 	return session.delete(TogglAPI, path)
 }
 
 // CreateTag creates a new tag.
 func (session *Session) CreateTag(name string, wid int) (proj Tag, err error) {
-	if doLogging {
-		dlog.Printf("Creating tag %s", name)
-	}
+	dlog.Printf("Creating tag %s", name)
 	data := map[string]interface{}{
 		"tag": map[string]interface{}{
 			"name": name,
@@ -389,9 +366,7 @@ func (session *Session) CreateTag(name string, wid int) (proj Tag, err error) {
 		Data Tag `json:"data"`
 	}
 	err = json.Unmarshal(respData, &entry)
-	if doLogging {
-		dlog.Printf("Unmarshaled '%s' into %#v\n", respData, entry)
-	}
+	dlog.Printf("Unmarshaled '%s' into %#v\n", respData, entry)
 	if err != nil {
 		return proj, err
 	}
@@ -401,9 +376,7 @@ func (session *Session) CreateTag(name string, wid int) (proj Tag, err error) {
 
 // UpdateTag changes information about an existing tag.
 func (session *Session) UpdateTag(tag Tag) (Tag, error) {
-	if doLogging {
-		dlog.Printf("Updating tag %v", tag)
-	}
+	dlog.Printf("Updating tag %v", tag)
 	data := map[string]interface{}{
 		"tag": tag,
 	}
@@ -418,9 +391,7 @@ func (session *Session) UpdateTag(tag Tag) (Tag, error) {
 		Data Tag `json:"data"`
 	}
 	err = json.Unmarshal(respData, &entry)
-	if doLogging {
-		dlog.Printf("Unmarshaled '%s' into %#v\n", data, entry)
-	}
+	dlog.Printf("Unmarshaled '%s' into %#v\n", data, entry)
 	if err != nil {
 		return Tag{}, err
 	}
@@ -430,9 +401,7 @@ func (session *Session) UpdateTag(tag Tag) (Tag, error) {
 
 // DeleteTag deletes a tag.
 func (session *Session) DeleteTag(tag Tag) ([]byte, error) {
-	if doLogging {
-		dlog.Printf("Deleting tag %v", tag)
-	}
+	dlog.Printf("Deleting tag %v", tag)
 	path := fmt.Sprintf("/tags/%v", tag.ID)
 	return session.delete(TogglAPI, path)
 }
@@ -554,9 +523,7 @@ func (session *Session) get(requestURL string, path string, params map[string]st
 		requestURL += "?" + data.Encode()
 	}
 
-	if doLogging {
-		dlog.Printf("GETing from URL: %s", requestURL)
-	}
+	dlog.Printf("GETing from URL: %s", requestURL)
 	return session.request("GET", requestURL, nil)
 }
 
@@ -571,10 +538,8 @@ func (session *Session) post(requestURL string, path string, data interface{}) (
 			return nil, err
 		}
 	}
-	if doLogging {
-		dlog.Printf("POSTing to URL: %s", requestURL)
-		dlog.Printf("data: %s", body)
-	}
+	dlog.Printf("POSTing to URL: %s", requestURL)
+	dlog.Printf("data: %s", body)
 	return session.request("POST", requestURL, bytes.NewBuffer(body))
 }
 
@@ -589,17 +554,13 @@ func (session *Session) put(requestURL string, path string, data interface{}) ([
 			return nil, err
 		}
 	}
-	if doLogging {
-		dlog.Printf("PUTing to URL %s: %s", requestURL, string(body))
-	}
+	dlog.Printf("PUTing to URL %s: %s", requestURL, string(body))
 	return session.request("PUT", requestURL, bytes.NewBuffer(body))
 }
 
 func (session *Session) delete(requestURL string, path string) ([]byte, error) {
 	requestURL += path
-	if doLogging {
-		dlog.Printf("DELETINGing URL: %s", requestURL)
-	}
+	dlog.Printf("DELETINGing URL: %s", requestURL)
 	return session.request("DELETE", requestURL, nil)
 }
 
@@ -685,9 +646,7 @@ func timeEntryRequest(data []byte, err error) (TimeEntry, error) {
 		Data TimeEntry `json:"data"`
 	}
 	err = json.Unmarshal(data, &entry)
-	if doLogging {
-		dlog.Printf("Unmarshaled '%s' into %#v\n", data, entry)
-	}
+	dlog.Printf("Unmarshaled '%s' into %#v\n", data, entry)
 	if err != nil {
 		return TimeEntry{}, err
 	}
@@ -695,16 +654,15 @@ func timeEntryRequest(data []byte, err error) (TimeEntry, error) {
 	return entry.Data, nil
 }
 
-// DisableLogging disables writing to dlog
-func DisableLogging() {
-	doLogging = false
+// DisableLog disables output to stderr
+func DisableLog() {
+	dlog.SetFlags(0)
+	dlog.SetOutput(ioutil.Discard)
 }
 
-// EnableLogging enables writing to dlog
-func EnableLogging() {
-	doLogging = true
-}
-
-func init() {
-	doLogging = true
+// EnableLog enables output to stderr
+func EnableLog() {
+	logFlags := dlog.Flags()
+	dlog.SetFlags(logFlags)
+	dlog.SetOutput(os.Stderr)
 }
