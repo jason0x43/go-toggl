@@ -583,9 +583,7 @@ func decodeAccount(data []byte, account *Account) error {
 }
 
 func decodeSummaryReport(data []byte, report *SummaryReport) error {
-	if doLogging {
-		dlog.Printf("Decoding %s", data)
-	}
+	dlog.Printf("Decoding %s", data)
 	dec := json.NewDecoder(bytes.NewReader(data))
 	err := dec.Decode(&report)
 	if err != nil {
