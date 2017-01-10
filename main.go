@@ -47,13 +47,14 @@ type Session struct {
 // Account represents a user account.
 type Account struct {
 	Data struct {
-		APIToken    string      `json:"api_token"`
-		Timezone    string      `json:"timezone"`
-		ID          int         `json:"id"`
-		Workspaces  []Workspace `json:"workspaces"`
-		Projects    []Project   `json:"projects"`
-		Tags        []Tag       `json:"tags"`
-		TimeEntries []TimeEntry `json:"time_entries"`
+		APIToken        string      `json:"api_token"`
+		Timezone        string      `json:"timezone"`
+		ID              int         `json:"id"`
+		Workspaces      []Workspace `json:"workspaces"`
+		Projects        []Project   `json:"projects"`
+		Tags            []Tag       `json:"tags"`
+		TimeEntries     []TimeEntry `json:"time_entries"`
+		BeginningOfWeek int         `json:"beginning_of_week"`
 	} `json:"data"`
 	Since int `json:"since"`
 }
@@ -95,7 +96,7 @@ type TimeEntry struct {
 	Description string     `json:"description,omitempty"`
 	Stop        *time.Time `json:"stop,omitempty"`
 	Start       *time.Time `json:"start,omitempty"`
-	Tags        []string   `json:"tags"`
+	Tags        []string   `json:"tags,omitempty"`
 	Duration    int64      `json:"duration,omitempty"`
 	DurOnly     bool       `json:"duronly"`
 }
@@ -225,9 +226,13 @@ func (session *Session) ContinueTimeEntry(timer TimeEntry, duronly bool) (TimeEn
 	dlog.Printf("Continuing timer %v", timer)
 	var respData []byte
 	var err error
-	if duronly {
+
+	if duronly && time.Now().Local().Format("2006-01-02") == timer.Start.Local().Format("2006-01-02") {
+		// If we're doing a duration-only continuation for a timer today, then
+		// create a new entry that's a copy of the existing one with an
+		// adjusted duration
 		entry := timer.Copy()
-		entry.Duration = -(time.Now().Unix())
+		entry.Duration = -(time.Now().Unix() - entry.Duration)
 		entry.DurOnly = true
 		data := map[string]interface{}{
 			"time_entry": entry,
@@ -235,16 +240,60 @@ func (session *Session) ContinueTimeEntry(timer TimeEntry, duronly bool) (TimeEn
 		path := fmt.Sprintf("/time_entries/%d", timer.ID)
 		respData, err = session.put(TogglAPI, path, data)
 	} else {
+		// If we're not doing a duration-only continuation, or a duration timer
+		// doesn't already exist for today, create a completely new time entry
 		data := map[string]interface{}{
 			"time_entry": map[string]interface{}{
 				"description":  timer.Description,
 				"pid":          timer.Pid,
 				"created_with": AppName,
+				"tags":         timer.Tags,
+				"duronly":      duronly,
 			},
 		}
 		respData, err = session.post(TogglAPI, "/time_entries/start", data)
 	}
 	return timeEntryRequest(respData, err)
+}
+
+// UnstopTimeEntry starts a new entry that is a copy of the given one, including
+// the given timer's start time. The given time entry is then deleted.
+func (session *Session) UnstopTimeEntry(timer TimeEntry) (newEntry TimeEntry, err error) {
+	dlog.Printf("Unstopping timer %v", timer)
+	var respData []byte
+
+	data := map[string]interface{}{
+		"time_entry": map[string]interface{}{
+			"description":  timer.Description,
+			"pid":          timer.Pid,
+			"created_with": AppName,
+			"tags":         timer.Tags,
+			"duronly":      timer.DurOnly,
+		},
+	}
+
+	if respData, err = session.post(TogglAPI, "/time_entries/start", data); err != nil {
+		err = fmt.Errorf("New entry not started: %v", err)
+		return
+	}
+
+	if newEntry, err = timeEntryRequest(respData, err); err != nil {
+		err = fmt.Errorf("New entry not valid: %v", err)
+		return
+	}
+
+	newEntry.Start = timer.Start
+
+	if _, err = session.UpdateTimeEntry(newEntry); err != nil {
+		err = fmt.Errorf("New entry not updated: %v", err)
+		return
+	}
+
+	if _, err = session.DeleteTimeEntry(timer); err != nil {
+		err = fmt.Errorf("Old entry not deleted: %v", err)
+	}
+
+	return
 }
 
 // StopTimeEntry stops a running time entry.
@@ -259,6 +308,7 @@ func (session *Session) StopTimeEntry(timer TimeEntry) (TimeEntry, error) {
 // given ID.
 func (session *Session) AddRemoveTag(entryID int, tag string, add bool) (TimeEntry, error) {
 	dlog.Printf("Adding tag to time entry %v", entryID)
+
 	action := "add"
 	if !add {
 		action = "remove"
@@ -456,6 +506,49 @@ func (e *TimeEntry) RemoveTag(tag string) {
 	}
 }
 
+// SetDuration sets a time entry's duration. The duration should be a value in
+// seconds. The stop time will also be updated. Note that the time entry must
+// not be running.
+func (e *TimeEntry) SetDuration(duration int64) error {
+	if e.IsRunning() {
+		return fmt.Errorf("TimeEntry must be stopped")
+	}
+
+	e.Duration = duration
+	newStop := e.Start.Add(time.Duration(duration) * time.Second)
+	e.Stop = &newStop
+
+	return nil
+}
+
+// SetStartTime sets a time entry's start time. If the time entry is stopped,
+// the stop time will also be updated.
+func (e *TimeEntry) SetStartTime(start time.Time, updateEnd bool) {
+	e.Start = &start
+
+	if !e.IsRunning() {
+		if updateEnd {
+			newStop := start.Add(time.Duration(e.Duration) * time.Second)
+			e.Stop = &newStop
+		} else {
+			e.Duration = e.Stop.Unix() - e.Start.Unix()
+		}
+	}
+}
+
+// SetStopTime sets a time entry's stop time. The duration will also be
+// updated. Note that the time entry must not be running.
+func (e *TimeEntry) SetStopTime(stop time.Time) (err error) {
+	if e.IsRunning() {
+		return fmt.Errorf("TimeEntry must be stopped")
+	}
+
+	e.Stop = &stop
+	e.Duration = int64(stop.Sub(*e.Start) / time.Second)
+
+	return nil
+}
+
 func indexOfTag(tag string, tags []string) int {
 	for i, t := range tags {
 		if t == tag {
@@ -538,6 +631,7 @@ func (session *Session) post(requestURL string, path string, data interface{}) (
 			return nil, err
 		}
 	}
+
 	dlog.Printf("POSTing to URL: %s", requestURL)
 	dlog.Printf("data: %s", body)
 	return session.request("POST", requestURL, bytes.NewBuffer(body))
@@ -554,6 +648,7 @@ func (session *Session) put(requestURL string, path string, data interface{}) ([
 			return nil, err
 		}
 	}
+
 	dlog.Printf("PUTing to URL %s: %s", requestURL, string(body))
 	return session.request("PUT", requestURL, bytes.NewBuffer(body))
 }
@@ -594,17 +689,17 @@ func decodeSummaryReport(data []byte, report *SummaryReport) error {
 
 // This is an alias for TimeEntry that is used in tempTimeEntry to prevent the
 // unmarshaler from infinitely recursing while unmarshaling.
-type timeEntry TimeEntry
+type embeddedTimeEntry TimeEntry
 
 // tempTimeEntry is an intermediate type used as for decoding TimeEntries.
 type tempTimeEntry struct {
-	timeEntry
+	embeddedTimeEntry
 	Stop  string `json:"stop"`
 	Start string `json:"start"`
 }
 
 func (t *tempTimeEntry) asTimeEntry() (entry TimeEntry, err error) {
-	entry = TimeEntry(t.timeEntry)
+	entry = TimeEntry(t.embeddedTimeEntry)
 
 	parseTime := func(s string) (t time.Time, err error) {
 		t, err = time.Parse("2006-01-02T15:04:05Z", s)
