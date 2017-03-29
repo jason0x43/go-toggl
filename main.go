@@ -96,7 +96,7 @@ type TimeEntry struct {
 	Description string     `json:"description,omitempty"`
 	Stop        *time.Time `json:"stop,omitempty"`
 	Start       *time.Time `json:"start,omitempty"`
-	Tags        []string   `json:"tags,omitempty"`
+	Tags        []string   `json:"tags"`
 	Duration    int64      `json:"duration,omitempty"`
 	DurOnly     bool       `json:"duronly"`
 }
