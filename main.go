@@ -52,6 +52,7 @@ type Account struct {
 		ID              int         `json:"id"`
 		Workspaces      []Workspace `json:"workspaces"`
 		Projects        []Project   `json:"projects"`
+		Tasks           []Task      `json:"tasks"`
 		Tags            []Tag       `json:"tags"`
 		TimeEntries     []TimeEntry `json:"time_entries"`
 		BeginningOfWeek int         `json:"beginning_of_week"`
@@ -81,6 +82,14 @@ func (p *Project) IsActive() bool {
 	return p.Active && p.ServerDeletedAt == nil
 }
 
+// Task represents a task.
+type Task struct {
+	Wid  int    `json:"wid"`
+	Pid  int    `json:"pid"`
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
 // Tag represents a tag.
 type Tag struct {
 	Wid  int    `json:"wid"`
@@ -93,6 +102,7 @@ type TimeEntry struct {
 	Wid         int        `json:"wid,omitempty"`
 	ID          int        `json:"id,omitempty"`
 	Pid         int        `json:"pid"`
+	Tid         int        `json:"tid"`
 	Description string     `json:"description,omitempty"`
 	Stop        *time.Time `json:"stop,omitempty"`
 	Start       *time.Time `json:"start,omitempty"`
@@ -246,6 +256,7 @@ func (session *Session) ContinueTimeEntry(timer TimeEntry, duronly bool) (TimeEn
 			"time_entry": map[string]interface{}{
 				"description":  timer.Description,
 				"pid":          timer.Pid,
+				"tid":          timer.Tid,
 				"created_with": AppName,
 				"tags":         timer.Tags,
 				"duronly":      duronly,
@@ -266,6 +277,7 @@ func (session *Session) UnstopTimeEntry(timer TimeEntry) (newEntry TimeEntry, er
 		"time_entry": map[string]interface{}{
 			"description":  timer.Description,
 			"pid":          timer.Pid,
+			"tid":          timer.Tid,
 			"created_with": AppName,
 			"tags":         timer.Tags,
 			"duronly":      timer.DurOnly,
