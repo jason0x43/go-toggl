@@ -51,6 +51,7 @@ type Account struct {
 		Timezone        string      `json:"timezone"`
 		ID              int         `json:"id"`
 		Workspaces      []Workspace `json:"workspaces"`
+		Clients         []Client    `json:"clients"`
 		Projects        []Project   `json:"projects"`
 		Tasks           []Task      `json:"tasks"`
 		Tags            []Tag       `json:"tags"`
@@ -68,10 +69,19 @@ type Workspace struct {
 	Name            string `json:"name"`
 }
 
+// Client represents a client.
+type Client struct {
+	Wid   int    `json:"wid"`
+	ID    int    `json:"id"`
+	Name  string `json:"name"`
+	Notes string `json:"notes"`
+}
+
 // Project represents a project.
 type Project struct {
 	Wid             int        `json:"wid"`
 	ID              int        `json:"id"`
+	Cid             int        `json:"cid"`
 	Name            string     `json:"name"`
 	Active          bool       `json:"active"`
 	ServerDeletedAt *time.Time `json:"server_deleted_at,omitempty"`
