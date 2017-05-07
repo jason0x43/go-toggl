@@ -217,11 +217,12 @@ func (session *Session) StartTimeEntry(description string) (TimeEntry, error) {
 }
 
 // StartTimeEntryForProject creates a new time entry for a specific project.
-func (session *Session) StartTimeEntryForProject(description string, projectID int) (TimeEntry, error) {
+func (session *Session) StartTimeEntryForProject(description string, projectID int, billable bool) (TimeEntry, error) {
 	data := map[string]interface{}{
 		"time_entry": map[string]interface{}{
 			"description":  description,
 			"pid":          projectID,
+			"billable":     billable,
 			"created_with": AppName,
 		},
 	}
@@ -269,6 +270,7 @@ func (session *Session) ContinueTimeEntry(timer TimeEntry, duronly bool) (TimeEn
 				"description":  timer.Description,
 				"pid":          timer.Pid,
 				"tid":          timer.Tid,
+				"billable":     timer.Billable,
 				"created_with": AppName,
 				"tags":         timer.Tags,
 				"duronly":      duronly,
@@ -290,6 +292,7 @@ func (session *Session) UnstopTimeEntry(timer TimeEntry) (newEntry TimeEntry, er
 			"description":  timer.Description,
 			"pid":          timer.Pid,
 			"tid":          timer.Tid,
+			"billable":     timer.Billable,
 			"created_with": AppName,
 			"tags":         timer.Tags,
 			"duronly":      timer.DurOnly,
