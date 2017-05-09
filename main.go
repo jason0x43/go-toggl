@@ -67,6 +67,7 @@ type Workspace struct {
 	RoundingMinutes int    `json:"rounding_minutes"`
 	Rounding        int    `json:"rounding"`
 	Name            string `json:"name"`
+	Premium         bool   `json:"premium"`
 }
 
 // Client represents a client.
