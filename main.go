@@ -253,6 +253,13 @@ func (session *Session) GetDetailedReport(workspace int, since, until string, pa
 }
 
 // StartTimeEntry creates a new time entry.
+func (session *Session) GetCurrentTimeEntry() (TimeEntry, error) {
+	params := map[string]string{"user_agent": "jc-toggl"}
+	data, err := session.get(TogglAPI, "/time_entries/current", params)
+	return timeEntryRequest(data, err)
+}
+
+// StartTimeEntry creates a new time entry.
 func (session *Session) StartTimeEntry(description string) (TimeEntry, error) {
 	data := map[string]interface{}{
 		"time_entry": map[string]string{
