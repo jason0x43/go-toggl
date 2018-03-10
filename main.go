@@ -612,6 +612,20 @@ func (session *Session) GetTagByName(name string, wid int) (tag Tag, err error) 
 	return tag, fmt.Errorf("Tag %s not found", name)
 }
 
+func (session *Session) GetWorkspaces() (workspaces []Workspace, err error) {
+	dlog.Println("Getting workspaces")
+	data := map[string]string{"user_agent": "jc-toggl"}
+
+	respData, err := session.get(TogglAPI, "/workspaces", data)
+	if err != nil {
+		return workspaces, err
+	}
+
+	err = json.Unmarshal(respData, &workspaces)
+	dlog.Printf("Unmarshaled '%s' into %#v\n", respData, workspaces)
+	return workspaces, err
+}
+
 func (session *Session) GetWorkspaceTags(wid int) (tags []Tag, err error) {
 	dlog.Printf("Getting tags of %d", wid)
 	data := map[string]string{"user_agent": "jc-toggl"}
@@ -621,12 +635,6 @@ func (session *Session) GetWorkspaceTags(wid int) (tags []Tag, err error) {
 	if err != nil {
 		return tags, err
 	}
-
-	/*
-	var tagsStruct struct {
-		Tags []Tag
-	}
-	*/
 
 	err = json.Unmarshal(respData, &tags)
 	dlog.Printf("Unmarshaled '%s' into %#v\n", respData, tags)
