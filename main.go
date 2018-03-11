@@ -153,8 +153,10 @@ type SummaryReport struct {
 		ID   int `json:"id"`
 		Time int `json:"time"`
 		Title struct {
-			Project string `json:"project"`
-			Client  string `json:"client"`
+			Project  string `json:"project"`
+			Client   string `json:"client"`
+			Color    string `json:"color"`
+			HexColor string `json:"hex_color"`
 		} `json:"title"`
 		Items []struct {
 			Title map[string]string `json:"title"`
