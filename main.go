@@ -266,6 +266,16 @@ func (session *Session) StartTimeEntry(description string) (TimeEntry, error) {
 	return timeEntryRequest(respData, err)
 }
 
+// GetCurrentTimeEntry returns the current time entry, that's running
+func (session *Session) GetCurrentTimeEntry() (TimeEntry, error) {
+	data, err := session.get(TogglAPI, "/time_entries/current", nil)
+	if err != nil {
+		return TimeEntry{}, err
+	}
+
+	return timeEntryRequest(data, err)
+}
+
 // StartTimeEntryForProject creates a new time entry for a specific project. Note that the 'billable' option is only
 // meaningful for Toggl Pro accounts; it will be ignored for free accounts.
 func (session *Session) StartTimeEntryForProject(description string, projectID int, billable bool) (TimeEntry, error) {
