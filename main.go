@@ -544,6 +544,44 @@ func (session *Session) DeleteTag(tag Tag) ([]byte, error) {
 	return session.delete(TogglAPI, path)
 }
 
+// GetClients returns a list of clients for the current account
+func (session *Session) GetClients() (clients []Client, err error) {
+	dlog.Println("Retrieving clients")
+
+	data, err := session.get(TogglAPI, "/clients", nil)
+	if err != nil {
+		return clients, err
+	}
+	err = json.Unmarshal(data, &clients)
+	return clients, err
+}
+
+// CreateClient adds a new client
+func (session *Session) CreateClient(name string, wid int) (client Client, err error) {
+	dlog.Printf("Creating client %s", name)
+	data := map[string]interface{}{
+		"client": map[string]interface{}{
+			"name": name,
+			"wid":  wid,
+		},
+	}
+
+	respData, err := session.post(TogglAPI, "/clients", data)
+	if err != nil {
+		return client, err
+	}
+
+	var entry struct {
+		Data Client `json:"data"`
+	}
+	err = json.Unmarshal(respData, &entry)
+	dlog.Printf("Unmarshaled '%s' into %#v\n", respData, entry)
+	if err != nil {
+		return client, err
+	}
+	return entry.Data, nil
+}
+
 // Copy returns a copy of a TimeEntry.
 func (e *TimeEntry) Copy() TimeEntry {
 	newEntry := *e
