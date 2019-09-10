@@ -17,3 +17,4 @@ History
 -------
 
 1.0.0 Update to use go modules
+1.1.0 GetTimeEntries
