@@ -14,7 +14,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/jason0x43/go-toggl"
+	"github.com/sascha-andres/go-toggl"
 )
 
 func main() {
