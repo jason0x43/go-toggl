@@ -443,6 +443,20 @@ func (e *TimeEntry) IsRunning() bool {
 	return e.Duration < 0
 }
 
+// GetProjects allows to query for all projects in a workspace
+func (session *Session) GetProjects(wid int) (projects []Project, err error) {
+	dlog.Printf("Getting projects for workspace %d", wid)
+	path := fmt.Sprintf("/workspaces/%v/projects", wid)
+	data,err := session.get(TogglAPI, path, nil)
+	if err != nil {
+		return
+	}
+
+	err = json.Unmarshal(data, &projects)
+	dlog.Printf("Unmarshaled '%s' into %#v\n", data, projects)
+	return
+}
+
 // CreateProject creates a new project.
 func (session *Session) CreateProject(name string, wid int) (proj Project, err error) {
 	dlog.Printf("Creating project %s", name)
