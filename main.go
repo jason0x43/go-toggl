@@ -457,6 +457,23 @@ func (session *Session) GetProjects(wid int) (projects []Project, err error) {
 	return
 }
 
+// GetProjects allows to query for all projects in a workspace
+func (session *Session) GetProject(id int) (project *Project, err error) {
+	type dataProject struct {
+		Data Project
+	}
+	dlog.Printf("Getting project with id %d", id)
+	path := fmt.Sprintf("/projects/%v", id)
+	data,err := session.get(TogglAPI, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	var dProject dataProject
+	err = json.Unmarshal(data, &dProject)
+	dlog.Printf("Unmarshaled '%s' into %#v\n", data, dProject)
+	return &dProject.Data, nil
+}
+
 // CreateProject creates a new project.
 func (session *Session) CreateProject(name string, wid int) (proj Project, err error) {
 	dlog.Printf("Creating project %s", name)
