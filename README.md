@@ -12,3 +12,9 @@ Documentation
 -------------
 
 See the [godocs](http://godoc.org/github.com/jason0x43/go-toggl).
+
+History
+-------
+
+1.0.0 Update to use go modules
+1.1.0 GetTimeEntries

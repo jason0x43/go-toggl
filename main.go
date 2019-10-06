@@ -276,6 +276,23 @@ func (session *Session) GetCurrentTimeEntry() (TimeEntry, error) {
 	return timeEntryRequest(data, err)
 }
 
+// GetTimeEntries returns a list of time entries
+func (session *Session) GetTimeEntries(startDate, endDate time.Time) ([]TimeEntry, error) {
+	params := make(map[string]string)
+	params["start_date"] = startDate.Format(time.RFC3339)
+	params["end_date"] = endDate.Format(time.RFC3339)
+	data, err := session.get(TogglAPI, "/time_entries", params)
+	if err != nil {
+		return nil, err
+	}
+	results := make([]TimeEntry, 0)
+	err = json.Unmarshal(data, &results)
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
 // StartTimeEntryForProject creates a new time entry for a specific project. Note that the 'billable' option is only
 // meaningful for Toggl Pro accounts; it will be ignored for free accounts.
 func (session *Session) StartTimeEntryForProject(description string, projectID int, billable bool) (TimeEntry, error) {
@@ -424,6 +441,37 @@ func (session *Session) DeleteTimeEntry(timer TimeEntry) ([]byte, error) {
 // IsRunning returns true if the receiver is currently running.
 func (e *TimeEntry) IsRunning() bool {
 	return e.Duration < 0
+}
+
+// GetProjects allows to query for all projects in a workspace
+func (session *Session) GetProjects(wid int) (projects []Project, err error) {
+	dlog.Printf("Getting projects for workspace %d", wid)
+	path := fmt.Sprintf("/workspaces/%v/projects", wid)
+	data,err := session.get(TogglAPI, path, nil)
+	if err != nil {
+		return
+	}
+
+	err = json.Unmarshal(data, &projects)
+	dlog.Printf("Unmarshaled '%s' into %#v\n", data, projects)
+	return
+}
+
+// GetProjects allows to query for all projects in a workspace
+func (session *Session) GetProject(id int) (project *Project, err error) {
+	type dataProject struct {
+		Data Project
+	}
+	dlog.Printf("Getting project with id %d", id)
+	path := fmt.Sprintf("/projects/%v", id)
+	data,err := session.get(TogglAPI, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	var dProject dataProject
+	err = json.Unmarshal(data, &dProject)
+	dlog.Printf("Unmarshaled '%s' into %#v\n", data, dProject)
+	return &dProject.Data, nil
 }
 
 // CreateProject creates a new project.
