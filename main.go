@@ -22,7 +22,7 @@ import (
 
 // Toggl service constants
 const (
-	TogglAPI       = "https://api.track.toggl.com/api/v8"
+	TogglAPI       = "https://api.track.toggl.com/api/v9"
 	ReportsAPI     = "https://api.track.toggl.com/reports/api/v2"
 	DefaultAppName = "go-toggl"
 )
@@ -214,16 +214,16 @@ func (session *Session) GetAccount() (Account, error) {
 	return account, err
 }
 
-// GetSummaryReport retrieves a summary report using Toggle's reporting API.
+// GetSummaryReport retrieves a summary report using Toggl's reporting API.
 func (session *Session) GetSummaryReport(workspace int, since, until string) (SummaryReport, error) {
 	params := map[string]string{
-		"user_agent":   "jc-toggl",
-		"grouping":     "projects",
-		"since":        since,
-		"until":        until,
-		"rounding":     "on",
-		"workspace_id": fmt.Sprintf("%d", workspace)}
-	data, err := session.get(ReportsAPI, "/summary", params)
+		"user_agent": "jc-toggl",
+		"grouping":   "projects",
+		"since":      since,
+		"until":      until,
+		"rounding":   "on",
+	}
+	data, err := session.get(ReportsAPI, fmt.Sprintf("/workspaces/%d/summary", workspace), params)
 	if err != nil {
 		return SummaryReport{}, err
 	}
@@ -234,16 +234,16 @@ func (session *Session) GetSummaryReport(workspace int, since, until string) (Su
 	return report, err
 }
 
-// GetDetailedReport retrieves a detailed report using Toggle's reporting API.
+// GetDetailedReport retrieves a detailed report using Toggl's reporting API.
 func (session *Session) GetDetailedReport(workspace int, since, until string, page int) (DetailedReport, error) {
 	params := map[string]string{
-		"user_agent":   "jc-toggl",
-		"since":        since,
-		"until":        until,
-		"page":         fmt.Sprintf("%d", page),
-		"rounding":     "on",
-		"workspace_id": fmt.Sprintf("%d", workspace)}
-	data, err := session.get(ReportsAPI, "/details", params)
+		"user_agent": "jc-toggl",
+		"since":      since,
+		"until":      until,
+		"page":       fmt.Sprintf("%d", page),
+		"rounding":   "on",
+	}
+	data, err := session.get(ReportsAPI, fmt.Sprintf("/workspaces/%d/details", workspace), params)
 	if err != nil {
 		return DetailedReport{}, err
 	}
@@ -315,7 +315,7 @@ func (session *Session) UpdateTimeEntry(timer TimeEntry) (TimeEntry, error) {
 		"time_entry": timer,
 	}
 	path := fmt.Sprintf("/time_entries/%v", timer.ID)
-	respData, err := session.post(TogglAPI, path, data)
+	respData, err := session.put(TogglAPI, path, data)
 	return timeEntryRequest(respData, err)
 }
 
@@ -447,7 +447,7 @@ func (e *TimeEntry) IsRunning() bool {
 func (session *Session) GetProjects(wid int) (projects []Project, err error) {
 	dlog.Printf("Getting projects for workspace %d", wid)
 	path := fmt.Sprintf("/workspaces/%v/projects", wid)
-	data,err := session.get(TogglAPI, path, nil)
+	data, err := session.get(TogglAPI, path, nil)
 	if err != nil {
 		return
 	}
@@ -457,14 +457,14 @@ func (session *Session) GetProjects(wid int) (projects []Project, err error) {
 	return
 }
 
-// GetProjects allows to query for all projects in a workspace
+// GetProject allows to query for a specific project by its ID
 func (session *Session) GetProject(id int) (project *Project, err error) {
 	type dataProject struct {
 		Data Project
 	}
 	dlog.Printf("Getting project with id %d", id)
 	path := fmt.Sprintf("/projects/%v", id)
-	data,err := session.get(TogglAPI, path, nil)
+	data, err := session.get(TogglAPI, path, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -484,7 +484,7 @@ func (session *Session) CreateProject(name string, wid int) (proj Project, err e
 		},
 	}
 
-	respData, err := session.post(TogglAPI, "/projects", data)
+	respData, err := session.post(TogglAPI, fmt.Sprintf("/workspaces/%d/projects", wid), data)
 	if err != nil {
 		return proj, err
 	}
@@ -534,7 +534,7 @@ func (session *Session) DeleteProject(project Project) ([]byte, error) {
 }
 
 // CreateTag creates a new tag.
-func (session *Session) CreateTag(name string, wid int) (proj Tag, err error) {
+func (session *Session) CreateTag(name string, wid int) (tag Tag, err error) {
 	dlog.Printf("Creating tag %s", name)
 	data := map[string]interface{}{
 		"tag": map[string]interface{}{
@@ -543,9 +543,9 @@ func (session *Session) CreateTag(name string, wid int) (proj Tag, err error) {
 		},
 	}
 
-	respData, err := session.post(TogglAPI, "/tags", data)
+	respData, err := session.post(TogglAPI, fmt.Sprintf("/workspaces/%d/tags", wid), data)
 	if err != nil {
-		return proj, err
+		return tag, err
 	}
 
 	var entry struct {
@@ -554,7 +554,7 @@ func (session *Session) CreateTag(name string, wid int) (proj Tag, err error) {
 	err = json.Unmarshal(respData, &entry)
 	dlog.Printf("Unmarshaled '%s' into %#v\n", respData, entry)
 	if err != nil {
-		return proj, err
+		return tag, err
 	}
 
 	return entry.Data, nil
@@ -593,15 +593,17 @@ func (session *Session) DeleteTag(tag Tag) ([]byte, error) {
 }
 
 // GetClients returns a list of clients for the current account
-func (session *Session) GetClients() (clients []Client, err error) {
-	dlog.Println("Retrieving clients")
-
-	data, err := session.get(TogglAPI, "/clients", nil)
+func (session *Session) GetClients(wid int) (clients []Client, err error) {
+	dlog.Printf("Getting clients for workspace %d", wid)
+	path := fmt.Sprintf("/workspaces/%d/clients", wid)
+	data, err := session.get(TogglAPI, path, nil)
 	if err != nil {
-		return clients, err
+		return
 	}
+
 	err = json.Unmarshal(data, &clients)
-	return clients, err
+	dlog.Printf("Unmarshaled '%s' into %#v\n", data, clients)
+	return
 }
 
 // CreateClient adds a new client
@@ -614,7 +616,7 @@ func (session *Session) CreateClient(name string, wid int) (client Client, err e
 		},
 	}
 
-	respData, err := session.post(TogglAPI, "/clients", data)
+	respData, err := session.post(TogglAPI, fmt.Sprintf("/workspaces/%d/clients", wid), data)
 	if err != nil {
 		return client, err
 	}
@@ -829,7 +831,7 @@ func (session *Session) put(requestURL string, path string, data interface{}) ([
 
 func (session *Session) delete(requestURL string, path string) ([]byte, error) {
 	requestURL += path
-	dlog.Printf("DELETINGing URL: %s", requestURL)
+	dlog.Printf("DELETING URL: %s", requestURL)
 	return session.request("DELETE", requestURL, nil)
 }
 
