@@ -206,12 +206,12 @@ func (session *Session) GetAccount() (Account, error) {
 	params := map[string]string{"with_related_data": "true"}
 	data, err := session.get(TogglAPI, "/me", params)
 	if err != nil {
-		return Account{}, err
+		return Account{}, fmt.Errorf("Error getting session: %v", err)
 	}
 
 	var account Account
 	err = decodeAccount(data, &account)
-	return account, err
+	return account, fmt.Errorf("Error decoding account data: %v", err)
 }
 
 // GetSummaryReport retrieves a summary report using Toggle's reporting API.
@@ -763,17 +763,17 @@ func (session *Session) request(method string, requestURL string, body io.Reader
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Error making request: %v", err)
 	}
 	defer resp.Body.Close()
 
 	content, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Error reading body: %v", err)
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
-		return content, fmt.Errorf(resp.Status)
+		return content, fmt.Errorf("Response error: %s", resp.Status)
 	}
 
 	return content, nil

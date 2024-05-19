@@ -26,7 +26,7 @@ func main() {
 
 	account, err := session.GetAccount()
 	if err != nil {
-		println("error:", err)
+		println(err.Error())
 		return
 	}
 
