@@ -238,7 +238,11 @@ func (session *Session) GetAccount() (Account, error) {
 
 	var account Account
 	err = decodeAccount(data, &account)
-	return account, fmt.Errorf("Error decoding account data: %v", err)
+	if err != nil {
+		return Account{}, fmt.Errorf("Error decoding account data: %v", err)
+	}
+
+	return account, nil
 }
 
 // GetSummaryReport retrieves a summary report using Toggle's reporting API.
